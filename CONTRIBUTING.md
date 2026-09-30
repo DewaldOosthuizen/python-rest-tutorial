@@ -69,7 +69,7 @@ Examples:
 - `fix/17-fix-mongodb-connection-handling`
 - `docs/update-contributing-guide`
 
-Always branch from `master`.
+Always branch from `main`.
 
 ---
 
@@ -141,7 +141,7 @@ Closes #42
 ## 8. Pull Request Process
 
 1. Ensure all local checks pass (see [Section 6](#6-running-checks-locally)).
-2. Open the PR against `master`.
+2. Open the PR against `main`.
 3. Use a scoped, descriptive title: `fix: resolve #17 - MongoDB connection error on cold start`.
 4. In the PR body:
    - Link the issue: `Closes #<n>`
