@@ -81,6 +81,50 @@ def _validate_password_strength(password):
     return None
 
 
+def _validate_register_body(data):
+    """Return an error message string if *data* is invalid for registration, or None."""
+    username = data.get("username")
+    password = data.get("password")
+    err = _require_string(username, MAX_USERNAME_LEN, "username")
+    if err:
+        return err
+    err = _require_string(password, MAX_PASSWORD_LEN, "password")
+    if err:
+        return err
+    err = _validate_password_strength(password)
+    if err:
+        return err
+    if not username or not password:
+        return "username and password are required"
+    return None
+
+
+def _validate_login_body(data):
+    """Return an error message string if *data* is invalid for login, or None."""
+    username = data.get("username")
+    password = data.get("password")
+    err = _require_string(username, MAX_USERNAME_LEN, "username")
+    if err:
+        return err
+    err = _require_string(password, MAX_PASSWORD_LEN, "password")
+    if err:
+        return err
+    if not username or not password:
+        return "username and password are required"
+    return None
+
+
+def _validate_save_body(data):
+    """Return an error message string if *data* is invalid for saving a message, or None."""
+    message = data.get("message")
+    err = _require_string(message, MAX_MESSAGE_LEN, "message")
+    if err:
+        return err
+    if not message:
+        return "message is required"
+    return None
+
+
 def user_exist(username):
     return users.count_documents({"Username": username}) > 0
 
@@ -150,19 +194,11 @@ class Register(Resource):
         data = request.get_json(silent=True, force=True)
         if not data:
             return {"status": 400, "msg": "Request body must be valid JSON"}, 400
-        username = data.get("username")
-        password = data.get("password")
-        err = _require_string(username, MAX_USERNAME_LEN, "username")
+        err = _validate_register_body(data)
         if err:
             return {"status": 400, "msg": err}, 400
-        err = _require_string(password, MAX_PASSWORD_LEN, "password")
-        if err:
-            return {"status": 400, "msg": err}, 400
-        err = _validate_password_strength(password)
-        if err:
-            return {"status": 400, "msg": err}, 400
-        if not username or not password:
-            return {"status": 400, "msg": "username and password are required"}, 400
+        username = data["username"]
+        password = data["password"]
         if user_exist(username):
             return {"status": 400, "msg": "User already exists"}, 400
 
@@ -182,16 +218,11 @@ class Login(Resource):
         data = request.get_json(silent=True, force=True)
         if not data:
             return {"status": 400, "msg": "Request body must be valid JSON"}, 400
-        username = data.get("username")
-        password = data.get("password")
-        err = _require_string(username, MAX_USERNAME_LEN, "username")
+        err = _validate_login_body(data)
         if err:
             return {"status": 400, "msg": err}, 400
-        err = _require_string(password, MAX_PASSWORD_LEN, "password")
-        if err:
-            return {"status": 400, "msg": err}, 400
-        if not username or not password:
-            return {"status": 400, "msg": "username and password are required"}, 400
+        username = data["username"]
+        password = data["password"]
         if not verify_user(username, password):
             return {"status": 401, "msg": "Invalid credentials"}, 401
         token = jwt.encode(
@@ -227,12 +258,10 @@ class Save(Resource):
         data = request.get_json(silent=True, force=True)
         if not data:
             return {"status": 400, "msg": "Request body must be valid JSON"}, 400
-        message = data.get("message")
-        err = _require_string(message, MAX_MESSAGE_LEN, "message")
+        err = _validate_save_body(data)
         if err:
             return {"status": 400, "msg": err}, 400
-        if not message:
-            return {"status": 400, "msg": "message is required"}, 400
+        message = data["message"]
         username = request.username
         users.update_one({"Username": username}, {"$push": {"Messages": message}})
         return {"status": 200, "msg": "Message has been saved successfully"}, 200
