@@ -176,6 +176,11 @@ return HTTP 400 with a descriptive message.
 Non-string values (e.g. a JSON number or array) for any of these fields also
 return HTTP 400.
 
+In addition to per-field limits, the API enforces a maximum total request body
+size of 1 MB (`MAX_CONTENT_LENGTH = 1_048_576` bytes). This limit is checked
+before the body is parsed, so oversized payloads are rejected with
+HTTP 413 (Request Body Too Large) before consuming memory.
+
 
 ## Using Postman
 

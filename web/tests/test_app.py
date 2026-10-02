@@ -588,3 +588,20 @@ def test_405_returns_json_for_wrong_method_on_existing_route(client):
     data = rv.get_json()
     assert data["status"] == 405
     assert data["msg"] == "Method not allowed"
+
+
+def test_413_returns_json_for_oversized_body(client):
+    """A request body exceeding MAX_CONTENT_LENGTH (1 MB) is rejected with 413."""
+    token = make_valid_token(username="alice")
+    oversized_body = b"x" * (1_048_576 + 1)  # 1 byte over the 1 MB limit
+    rv = client.post(
+        "/save",
+        data=oversized_body,
+        content_type="application/json",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert rv.status_code == 413
+    assert rv.headers["Content-Type"] == "application/json"
+    data = rv.get_json()
+    assert data["status"] == 413
+    assert data["msg"] == "Request body too large"

@@ -7,35 +7,18 @@ from functools import wraps
 
 import bcrypt
 import jwt
-from flask import Flask, jsonify, request
+from error_handlers import init_error_handlers
+from flask import Flask, request
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_restful import Api, Resource
 from pymongo import MongoClient
-from werkzeug.exceptions import HTTPException
 
 # print = functools.partial(print, flush=True)
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 1_048_576  # 1 MB
 api = Api(app)
-
-
-# Flask-Restful's Api.handle_error builds its own response for HTTP
-# exceptions and never consults Flask's @app.errorhandler chain. Route
-# all HTTP exceptions through Flask's dispatch so our app-level error
-# handlers (registered via @app.errorhandler) are invoked.
-def _patched_handle_error(e):
-    if isinstance(e, HTTPException):
-        return app.handle_http_exception(e)
-    # For unhandled Python exceptions (e.g. KeyError from a bug in an
-    # endpoint), flask-restful's default handle_error builds its own JSON
-    # response and never consults Flask's @app.errorhandler chain. Raise
-    # so that Api.error_router falls through to the original Flask handler,
-    # which will route the error through @app.errorhandler(500).
-    raise e
-
-
-api.handle_error = _patched_handle_error
 
 limiter = Limiter(
     get_remote_address,
@@ -273,20 +256,7 @@ api.add_resource(Login, "/login")
 api.add_resource(Retrieve, "/retrieve")
 api.add_resource(Save, "/save")
 
-
-@app.errorhandler(404)
-def handle_404(e):
-    return jsonify({"status": 404, "msg": "Not found"}), 404
-
-
-@app.errorhandler(405)
-def handle_405(e):
-    return jsonify({"status": 405, "msg": "Method not allowed"}), 405
-
-
-@app.errorhandler(500)
-def handle_500(e):
-    return jsonify({"status": 500, "msg": "Internal server error"}), 500
+init_error_handlers(app, api)
 
 
 if __name__ == "__main__":
