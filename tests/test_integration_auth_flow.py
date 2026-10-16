@@ -103,9 +103,7 @@ def test_save_and_retrieve(client):
     )
     assert save_resp.status_code == 200
 
-    retrieve_resp = client.post(
-        "/retrieve", headers={"Authorization": "Bearer " + token}
-    )
+    retrieve_resp = client.post("/retrieve", headers={"Authorization": "Bearer " + token})
     assert retrieve_resp.status_code == 200
     data = retrieve_resp.get_json()
     assert data["status"] == 200
@@ -131,12 +129,8 @@ def test_second_user_isolation(client):
         headers={"Authorization": "Bearer " + bob_token},
     )
 
-    alice_data = client.post(
-        "/retrieve", headers={"Authorization": "Bearer " + alice_token}
-    ).get_json()
-    bob_data = client.post(
-        "/retrieve", headers={"Authorization": "Bearer " + bob_token}
-    ).get_json()
+    alice_data = client.post("/retrieve", headers={"Authorization": "Bearer " + alice_token}).get_json()
+    bob_data = client.post("/retrieve", headers={"Authorization": "Bearer " + bob_token}).get_json()
 
     assert alice_data["obj"] == ["alice msg"]
     assert bob_data["obj"] == ["bob msg"]
