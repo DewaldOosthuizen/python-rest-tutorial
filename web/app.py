@@ -113,21 +113,19 @@ def user_exist(username):
 
 
 def verify_user(username, password):
-    if not user_exist(username):
+    user = users.find_one({"Username": username})
+    if user is None:
         return False
 
-    user_hashed_pw = users.find({"Username": username})[0]["Password"]
-
-    return bcrypt.checkpw(password.encode("utf8"), user_hashed_pw)
+    return bcrypt.checkpw(password.encode("utf8"), user["Password"])
 
 
 def get_user_messages(username):
     # get the messages
-    return users.find(
-        {
-            "Username": username,
-        }
-    )[0]["Messages"]
+    user = users.find_one({"Username": username})
+    if user is None:
+        return []
+    return user.get("Messages", [])
 
 
 def requires_auth(f):

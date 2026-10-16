@@ -3,18 +3,17 @@ Tests for web/app.py — Flask REST tutorial.
 
 Patching strategy
 -----------------
-All three helpers (user_exist, verify_user, get_user_messages) call
-    app.users.find({"Username": ...})
-and then either .count() or [0][field].  We therefore patch `app.users`
-and configure the returned cursor with both count() and __getitem__.
+All helpers now use app.users.find_one({"Username": ...}) instead of
+find(...) and [0] indexing. We therefore patch `app.users` and set
+mock_users.find_one.return_value to a user dict or None.
 
-We NEVER use find_one — it is not called anywhere in app.py.
+We no longer use find-based cursors with __getitem__ anywhere in app.py.
 """
 
 import datetime
 import os
 from datetime import timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import bcrypt
 import jwt
@@ -33,21 +32,17 @@ TEST_SECRET = "testsecret"
 # ---------------------------------------------------------------------------
 
 
-def make_user_cursor(username="alice", password="secret", messages=None):
+def make_user(username="alice", password="secret", messages=None):
     hashed = bcrypt.hashpw(password.encode("utf8"), bcrypt.gensalt())
-    user_doc = {
+    return {
         "Username": username,
         "Password": hashed,
         "Messages": messages or [],
     }
-    cursor = MagicMock()
-    cursor.__getitem__.return_value = user_doc
-    return cursor
 
 
-def make_empty_cursor():
-    cursor = MagicMock()
-    return cursor
+def make_empty_user():
+    return None
 
 
 def make_valid_token(username="alice", secret=TEST_SECRET):
@@ -217,7 +212,7 @@ def test_register_strong_password_returns_200(mock_users, rate_limited_client):
 @patch("app.users")
 def test_login_valid_credentials_returns_token(mock_users, client):
     mock_users.count_documents.return_value = 1
-    mock_users.find.return_value = make_user_cursor(username="alice", password="secret")
+    mock_users.find_one.return_value = make_user(username="alice", password="secret")
     rv = client.post("/login", json={"username": "alice", "password": "secret"})
     assert rv.status_code == 200
     data = rv.get_json()
@@ -228,7 +223,7 @@ def test_login_valid_credentials_returns_token(mock_users, client):
 @patch("app.users")
 def test_login_wrong_password_returns_401(mock_users, client):
     mock_users.count_documents.return_value = 1
-    mock_users.find.return_value = make_user_cursor(username="alice", password="correct")
+    mock_users.find_one.return_value = make_user(username="alice", password="correct")
     rv = client.post("/login", json={"username": "alice", "password": "wrong"})
     assert rv.status_code == 401
     assert rv.get_json()["status"] == 401
@@ -237,6 +232,7 @@ def test_login_wrong_password_returns_401(mock_users, client):
 @patch("app.users")
 def test_login_unknown_user_returns_401(mock_users, client):
     mock_users.count_documents.return_value = 0
+    mock_users.find_one.return_value = None
     rv = client.post("/login", json={"username": "ghost", "password": "x"})
     assert rv.status_code == 401
 
@@ -316,7 +312,7 @@ def test_retrieve_tampered_token_returns_401(mock_users, client):
 @patch("app.users")
 def test_retrieve_valid_token_returns_messages(mock_users, client):
     mock_users.count_documents.return_value = 1
-    mock_users.find.return_value = make_user_cursor(username="alice", messages=["hello"])
+    mock_users.find_one.return_value = make_user(username="alice", messages=["hello"])
     token = make_valid_token(username="alice")
     rv = client.post("/retrieve", headers={"Authorization": f"Bearer {token}"})
     assert rv.status_code == 200
@@ -329,7 +325,7 @@ def test_retrieve_valid_token_returns_messages(mock_users, client):
 def test_retrieve_default_pagination_returns_first_20_with_total(mock_users, client):
     messages = [f"msg-{i}" for i in range(50)]
     mock_users.count_documents.return_value = 1
-    mock_users.find.return_value = make_user_cursor(username="alice", messages=messages)
+    mock_users.find_one.return_value = make_user(username="alice", messages=messages)
     token = make_valid_token(username="alice")
     rv = client.post("/retrieve", headers={"Authorization": f"Bearer {token}"})
     assert rv.status_code == 200
@@ -344,7 +340,7 @@ def test_retrieve_default_pagination_returns_first_20_with_total(mock_users, cli
 def test_retrieve_custom_limit_returns_requested_number(mock_users, client):
     messages = [f"msg-{i}" for i in range(20)]
     mock_users.count_documents.return_value = 1
-    mock_users.find.return_value = make_user_cursor(username="alice", messages=messages)
+    mock_users.find_one.return_value = make_user(username="alice", messages=messages)
     token = make_valid_token(username="alice")
     rv = client.post(
         "/retrieve",
@@ -363,7 +359,7 @@ def test_retrieve_custom_limit_returns_requested_number(mock_users, client):
 def test_retrieve_custom_offset_skips_correct_messages(mock_users, client):
     messages = [f"msg-{i}" for i in range(20)]
     mock_users.count_documents.return_value = 1
-    mock_users.find.return_value = make_user_cursor(username="alice", messages=messages)
+    mock_users.find_one.return_value = make_user(username="alice", messages=messages)
     token = make_valid_token(username="alice")
     rv = client.post(
         "/retrieve",
@@ -382,7 +378,7 @@ def test_retrieve_custom_offset_skips_correct_messages(mock_users, client):
 def test_retrieve_offset_beyond_collection_returns_empty_page(mock_users, client):
     messages = [f"msg-{i}" for i in range(10)]
     mock_users.count_documents.return_value = 1
-    mock_users.find.return_value = make_user_cursor(username="alice", messages=messages)
+    mock_users.find_one.return_value = make_user(username="alice", messages=messages)
     token = make_valid_token(username="alice")
     rv = client.post(
         "/retrieve",
@@ -400,7 +396,7 @@ def test_retrieve_offset_beyond_collection_returns_empty_page(mock_users, client
 def test_retrieve_limit_capped_at_100(mock_users, client):
     messages = [f"msg-{i}" for i in range(150)]
     mock_users.count_documents.return_value = 1
-    mock_users.find.return_value = make_user_cursor(username="alice", messages=messages)
+    mock_users.find_one.return_value = make_user(username="alice", messages=messages)
     token = make_valid_token(username="alice")
     rv = client.post(
         "/retrieve",
@@ -539,6 +535,7 @@ def rate_limited_client():
 @patch("app.users")
 def test_login_rate_limit_returns_429_after_threshold(mock_users, rate_limited_client):
     mock_users.count_documents.return_value = 0
+    mock_users.find_one.return_value = None
     responses = []
     for _ in range(11):
         rv = rate_limited_client.post("/login", json={"username": "ghost", "password": "x"})
