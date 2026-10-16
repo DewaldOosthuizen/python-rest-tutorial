@@ -49,7 +49,7 @@ class TestModernPyMongoAPI:
 class TestRequirementsBumps:
     def test_pymongo_version(self):
         reqs = get_requirements()
-        assert "pymongo==4.7.2" in reqs, "requirements.txt must specify pymongo==4.7.2"
+        assert "pymongo==4.18.2" in reqs, "requirements.txt must specify pymongo==4.18.2"
 
     def test_flask_version(self):
         import re
@@ -62,7 +62,7 @@ class TestRequirementsBumps:
 
     def test_bcrypt_version(self):
         reqs = get_requirements()
-        assert "bcrypt==4.1.3" in reqs, "requirements.txt must specify bcrypt==4.1.3"
+        assert "bcrypt==5.0.0" in reqs, "requirements.txt must specify bcrypt==5.0.0"
 
     def test_flask_restful_present(self):
         reqs = get_requirements()
