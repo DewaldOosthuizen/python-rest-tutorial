@@ -204,6 +204,15 @@ pytest -v
 This runs both `web/tests/` (unit tests) and `tests/` (config and API-contract tests).
 
 
+## Logging
+
+The application uses module-level loggers of the form `logger = logging.getLogger(__name__)`
+in each module (see `CONTRIBUTING.md`). Library code under `web/` never calls
+`logging.basicConfig`; handler configuration is the responsibility of the deployment
+environment (Docker, systemd, etc.). Logs are emitted to stdout/stderr and captured by the
+deployment's log collection. No passwords, tokens, or connection strings appear in log output.
+
+
 ## Linting
 
 The project uses [Ruff](https://docs.astral.sh/ruff/) for linting and formatting
