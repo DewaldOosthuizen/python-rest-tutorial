@@ -1,5 +1,5 @@
-# import functools
 import datetime
+import logging
 import os
 import re
 from datetime import timezone
@@ -14,7 +14,7 @@ from flask_limiter.util import get_remote_address
 from flask_restful import Api, Resource
 from pymongo import MongoClient
 
-# print = functools.partial(print, flush=True)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 1_048_576  # 1 MB
@@ -134,11 +134,13 @@ def requires_auth(f):
         auth_header = request.headers.get("Authorization", "")
         token = auth_header.removeprefix("Bearer ").strip()
         if not token:
+            logger.warning("Authentication failed: missing or empty token")
             return {"status": 401, "msg": "Unauthorized"}, 401
         try:
             payload = jwt.decode(token, SECRET, algorithms=["HS256"])
             request.username = payload["sub"]
         except jwt.PyJWTError:
+            logger.warning("Authentication failed: JWT decode error")
             return {"status": 401, "msg": "Unauthorized"}, 401
         return f(*args, **kwargs)
 
@@ -181,6 +183,7 @@ class Register(Resource):
         username = data["username"]
         password = data["password"]
         if user_exist(username):
+            logger.warning("Registration attempted with existing username: %s", username)
             return {"status": 400, "msg": "User already exists"}, 400
 
         # encrypt password
@@ -189,6 +192,7 @@ class Register(Resource):
         # Insert record
         users.insert_one({"Username": username, "Password": hashed_pw, "Messages": []})
 
+        logger.info("User registered successfully: %s", username)
         return {"status": 200, "msg": "Registration successful"}, 200
 
 
@@ -205,12 +209,14 @@ class Login(Resource):
         username = data["username"]
         password = data["password"]
         if not verify_user(username, password):
+            logger.warning("login failed: invalid credentials for username %s", username)
             return {"status": 401, "msg": "Invalid credentials"}, 401
         token = jwt.encode(
             {"sub": username, "exp": datetime.datetime.now(timezone.utc) + datetime.timedelta(hours=1)},
             SECRET,
             algorithm="HS256",
         )
+        logger.info("login successful: %s", username)
         return {"status": 200, "token": token}, 200
 
 

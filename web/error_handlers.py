@@ -5,8 +5,12 @@ handling cleanly separated so that adding structured logging, metrics, or a cust
 error-response envelope later does not require touching the resource code.
 """
 
+import logging
+
 from flask import jsonify
 from werkzeug.exceptions import HTTPException
+
+logger = logging.getLogger(__name__)
 
 
 def init_error_handlers(app, api) -> None:
@@ -47,4 +51,5 @@ def init_error_handlers(app, api) -> None:
 
     @app.errorhandler(500)
     def handle_500(e: HTTPException):
+        logger.error("Unhandled exception", exc_info=e)
         return jsonify({"status": 500, "msg": "Internal server error"}), 500
