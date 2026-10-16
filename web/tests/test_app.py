@@ -602,3 +602,36 @@ def test_413_returns_json_for_oversized_body(client):
     data = rv.get_json()
     assert data["status"] == 413
     assert data["msg"] == "Request body too large"
+
+
+# ---------------------------------------------------------------------------
+# Authenticated identity binding (issue #65)
+# ---------------------------------------------------------------------------
+
+
+@patch("app.users")
+def test_retrieve_uses_authenticated_identity_in_find_one(mock_users, client):
+    """Retrieve must query MongoDB with the JWT subject, not a body username."""
+    mock_users.find_one.return_value = make_user(username="alice", messages=["hello"])
+    token = make_valid_token(username="alice")
+    rv = client.post(
+        "/retrieve",
+        json={"username": "eve"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert rv.status_code == 200
+    mock_users.find_one.assert_called_with({"Username": "alice"})
+
+
+@patch("app.users")
+def test_save_uses_authenticated_identity_in_update_one(mock_users, client):
+    """Save must update MongoDB with the JWT subject, ignoring body username."""
+    token = make_valid_token(username="alice")
+    rv = client.post(
+        "/save",
+        json={"message": "hi", "username": "eve"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert rv.status_code == 200
+    call_args = mock_users.update_one.call_args
+    assert call_args[0][0] == {"Username": "alice"}
