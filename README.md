@@ -288,20 +288,20 @@ builds across local, CI, and Docker environments.
 | Package       | Version  | Role                      |
 |---------------|----------|---------------------------|
 | Flask         | 3.1.3    | Web framework             |
-| Werkzeug      | >=3.0.0  | WSGI utilities            |
+| Werkzeug      | >=3.1.9  | WSGI utilities            |
 | flask-restful | 0.3.10   | REST resource helpers     |
-| pymongo       | 4.7.2    | MongoDB driver            |
-| bcrypt        | 4.1.3    | Password hashing          |
-| PyJWT         | >=2.8.0  | JWT authentication        |
-| Flask-Limiter | 3.7.0    | Rate limiting             |
+| pymongo       | 4.18.2   | MongoDB driver            |
+| bcrypt        | 5.0.0    | Password hashing          |
+| PyJWT         | >=2.15.1 | JWT authentication        |
+| Flask-Limiter | 4.1.1    | Rate limiting             |
 
 ### Development dependencies
 
 | Package       | Version  | Role                      |
 |---------------|----------|---------------------------|
-| pytest        | 9.0.3    | Test runner               |
-| pytest-cov    | >=4.1    | Coverage reports          |
-| ruff          | >=0.5.0  | Linting and formatting    |
+| pytest        | 9.1.1    | Test runner               |
+| pytest-cov    | 7.1.0    | Coverage reports          |
+| ruff          | 0.16.9   | Linting and formatting    |
 
 ### Upgrade procedure
 
