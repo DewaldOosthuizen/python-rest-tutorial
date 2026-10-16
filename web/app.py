@@ -121,6 +121,15 @@ def verify_user(username, password):
 
 
 def get_user_messages(username):
+    """Return the messages stored for *username*.
+
+    SECURITY PRECONDITION: *username* MUST already be an authenticated
+    identity obtained from ``request.username`` (set by the ``@requires_auth``
+    decorator). It must NEVER be sourced from the request body or any other
+    untrusted input. This function performs the single ``Username`` match and
+    is therefore the only place where the caller's identity is bound to the
+    MongoDB lookup.
+    """
     # get the messages
     user = users.find_one({"Username": username})
     if user is None:
@@ -249,6 +258,8 @@ class Save(Resource):
         if err:
             return {"status": 400, "msg": err}, 400
         message = data["message"]
+        # SECURITY: the username is sourced exclusively from request.username
+        # (set by @requires_auth); never from the request body.
         username = request.username
         users.update_one({"Username": username}, {"$push": {"Messages": message}})
         return {"status": 200, "msg": "Message has been saved successfully"}, 200
