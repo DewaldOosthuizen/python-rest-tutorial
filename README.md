@@ -204,6 +204,28 @@ pytest -v
 This runs both `web/tests/` (unit tests) and `tests/` (config and API-contract tests).
 
 
+## Running Integration Tests
+
+Integration tests require a live MongoDB instance. Start the database:
+
+```bash
+docker-compose up -d my_db
+```
+
+Then run:
+
+```bash
+export JWT_SECRET="your-test-secret"
+MONGO_URI="mongodb://127.0.0.1:27017/" pytest -m integration -v
+```
+
+Tear down when finished:
+
+```bash
+docker-compose down
+```
+
+
 ## Logging
 
 The application uses module-level loggers of the form `logger = logging.getLogger(__name__)`
