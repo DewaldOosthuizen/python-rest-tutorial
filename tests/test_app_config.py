@@ -66,5 +66,33 @@ class TestMongoURIConfig(unittest.TestCase):
         self.assertEqual(result, "mongodb://my_db:27017/")
 
 
-if __name__ == "__main__":
-    unittest.main()
+import pytest
+
+
+class TestJWTSecretValidation(unittest.TestCase):
+    def test_missing_jwt_secret_raises_runtime_error(self):
+        web_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "web"))
+        if web_path not in sys.path:
+            sys.path.insert(0, web_path)
+        if "app" in sys.modules:
+            del sys.modules["app"]
+        env = {k: v for k, v in os.environ.items() if k != "JWT_SECRET"}
+        with patch.dict(os.environ, env, clear=True):
+            with patch("pymongo.MongoClient"):
+                with pytest.raises(RuntimeError, match="JWT_SECRET"):
+                    import app  # noqa: F401
+        if "app" in sys.modules:
+            del sys.modules["app"]
+
+    def test_empty_jwt_secret_raises_runtime_error(self):
+        web_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "web"))
+        if web_path not in sys.path:
+            sys.path.insert(0, web_path)
+        if "app" in sys.modules:
+            del sys.modules["app"]
+        with patch.dict(os.environ, {"JWT_SECRET": ""}, clear=False):
+            with patch("pymongo.MongoClient"):
+                with pytest.raises(RuntimeError, match="JWT_SECRET"):
+                    import app  # noqa: F401
+        if "app" in sys.modules:
+            del sys.modules["app"]
