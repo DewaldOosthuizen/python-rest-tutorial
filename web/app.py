@@ -32,8 +32,16 @@ client = MongoClient(MONGO_URI)
 db = client.projectDB
 users = db["Users"]
 
-SECRET = os.environ["JWT_SECRET"]
 
+def _require_env(name: str) -> str:
+    """Return the value of *name*, failing fast if it is missing or empty."""
+    value = os.environ.get(name, "")
+    if not value:
+        raise RuntimeError(f"Required environment variable {name} is not set or empty")
+    return value
+
+
+SECRET = _require_env("JWT_SECRET")
 """
 HELPER FUNCTIONS
 """
