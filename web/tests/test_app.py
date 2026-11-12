@@ -392,25 +392,6 @@ def test_retrieve_offset_beyond_collection_returns_empty_page(mock_users, client
     assert data["obj"] == []
 
 
-@patch("app.users")
-def test_retrieve_limit_capped_at_100(mock_users, client):
-    messages = [f"msg-{i}" for i in range(150)]
-    mock_users.count_documents.return_value = 1
-    mock_users.find_one.return_value = make_user(username="alice", messages=messages)
-    token = make_valid_token(username="alice")
-    rv = client.post(
-        "/retrieve",
-        headers={"Authorization": f"Bearer {token}"},
-        query_string="limit=200",
-    )
-    assert rv.status_code == 200
-    data = rv.get_json()
-    assert data["status"] == 200
-    assert data["total"] == 150
-    assert len(data["obj"]) == 100
-    assert data["obj"] == messages[:100]
-
-
 # ---------------------------------------------------------------------------
 # Save
 # ---------------------------------------------------------------------------
@@ -635,3 +616,65 @@ def test_save_uses_authenticated_identity_in_update_one(mock_users, client):
     assert rv.status_code == 200
     call_args = mock_users.update_one.call_args
     assert call_args[0][0] == {"Username": "alice"}
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        {"offset": "-1"},
+        {"limit": "0"},
+        {"limit": "-1"},
+        {"limit": "101"},
+        {"limit": "200"},
+        {"offset": "abc"},
+        {"limit": "abc"},
+        {"offset": ""},
+        {"limit": ""},
+    ],
+)
+@patch("app.users")
+def test_retrieve_rejects_invalid_pagination(mock_users, client, query):
+    mock_users.find_one.return_value = {"Messages": ["hello"]}
+    token = make_valid_token(username="alice")
+
+    response = client.post(
+        "/retrieve",
+        headers={"Authorization": f"Bearer {token}"},
+        query_string=query,
+    )
+
+    assert response.status_code == 400
+    data = response.get_json()
+    assert data["status"] == 400
+    assert isinstance(data["msg"], str)
+    assert data["msg"]
+    mock_users.find_one.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("offset", "limit"),
+    [
+        (0, 1),
+        (0, 100),
+        (5, 5),
+        (200, 20),
+    ],
+)
+@patch("app.users")
+def test_retrieve_accepts_valid_pagination_boundaries(mock_users, client, offset, limit):
+    messages = [f"msg-{i}" for i in range(150)]
+    mock_users.find_one.return_value = make_user(username="alice", messages=messages)
+    token = make_valid_token(username="alice")
+
+    response = client.post(
+        "/retrieve",
+        headers={"Authorization": f"Bearer {token}"},
+        query_string={"offset": offset, "limit": limit},
+    )
+
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "status": 200,
+        "obj": messages[offset : offset + limit],
+        "total": len(messages),
+    }

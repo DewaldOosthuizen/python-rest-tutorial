@@ -244,9 +244,25 @@ class Retrieve(Resource):
 
     @requires_auth
     def post(self):
-        offset = request.args.get("offset", 0, type=int)
-        limit = request.args.get("limit", 20, type=int)
-        limit = min(limit, 100)
+        offset_error = "offset must be a non-negative integer"
+        limit_error = "limit must be an integer between 1 and 100"
+
+        try:
+            offset = int(request.args.get("offset", "0"))
+        except ValueError:
+            return {"status": 400, "msg": offset_error}, 400
+
+        if offset < 0:
+            return {"status": 400, "msg": offset_error}, 400
+
+        try:
+            limit = int(request.args.get("limit", "20"))
+        except ValueError:
+            return {"status": 400, "msg": limit_error}, 400
+
+        if not 1 <= limit <= 100:
+            return {"status": 400, "msg": limit_error}, 400
+
         all_messages = get_user_messages(request.username)
         page = all_messages[offset : offset + limit]
         return {"status": 200, "obj": page, "total": len(all_messages)}, 200
