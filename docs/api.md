@@ -19,14 +19,14 @@ Registered status codes:
 
 | Code | Meaning | Source |
 |------|---------|--------|
-| 200  | Success | Handlers return `{"status": 200, ...}` |
-| 400  | Validation failure (body, field length/type, duplicate user) | Resource handlers |
-| 401  | Missing, expired, or tampered token; invalid credentials | `@requires_auth`, `/login` |
-| 404  | No matching route | `web/error_handlers.py` |
-| 405  | Route exists, method not allowed | `web/error_handlers.py` |
-| 413  | Request body exceeds the 1 MB limit | `MAX_CONTENT_LENGTH` |
-| 429  | Rate limit exceeded | Flask-Limiter |
-| 500  | Unhandled server error | `web/error_handlers.py` |
+| 200 | Success | Handlers return `{"status": 200, ...}` |
+| 400 | Validation failure (body, field length/type, duplicate user, invalid pagination) | Resource handlers |
+| 401 | Missing, expired, or tampered token; invalid credentials | `@requires_auth`, `/login` |
+| 404 | No matching route | `web/error_handlers.py` |
+| 405 | Route exists, method not allowed | `web/error_handlers.py` |
+| 413 | Request body exceeds the 1 MB limit | `MAX_CONTENT_LENGTH` |
+| 429 | Rate limit exceeded | Flask-Limiter |
+| 500 | Unhandled server error | `web/error_handlers.py` |
 
 flask-restful builds its own responses for HTTP exceptions and never consults
 Flask's `@app.errorhandler` chain, so `web/error_handlers.py` patches
@@ -101,28 +101,32 @@ The token is signed with HS256 and carries a `sub` claim (the username) and an
 Return the authenticated user's messages, paginated. Requires a bearer token.
 
 ```shell
-curl -X POST http://localhost:5000/retrieve \
+curl -X POST "http://localhost:5000/retrieve?offset=0&limit=20" \
   -H "Authorization: Bearer <token>"
 ```
 
-Query parameters (both optional):
+Both query parameters are optional. The API uses the default value when a
+parameter is omitted.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `offset`  | `0`     | Zero-based index of the first message to return. |
-| `limit`   | `20`    | Maximum messages to return. Capped at **100** server-side. |
+| `offset` | `0` | Non-negative integer. Zero-based index of the first message to return. |
+| `limit` | `20` | Integer from `1` to `100`, inclusive. Maximum number of messages to return. |
 
-Response:
+Success — `200`:
 
 ```json
-{"status": 200, "obj": ["msg-0", "msg-1"], "total": 50}
+{"status": 200, "obj": ["msg-0", "msg-1"], "total": 2}
 ```
 
-`total` is the full message count for the user, so a client can paginate the
-whole collection. `obj` is the requested slice; slicing past the end yields a
-short or empty array rather than an error.
+`total` is the user's full message count. `obj` contains the requested page.
+An offset at or beyond the end returns an empty array.
 
-Failure: `401` if the token is missing, expired, or tampered.
+Failure modes:
+
+- `400` — `offset` or `limit` is empty, cannot be parsed as an integer, or
+  falls outside its allowed range.
+- `401` — missing, expired, or tampered token.
 
 ### `POST /save`
 
@@ -157,10 +161,10 @@ credential guessing and account-creation abuse (OWASP API4:2023 — Unrestricted
 Resource Consumption). `/hello`, `/retrieve`, and `/save` are unaffected; there is
 no global default limit.
 
-| Endpoint    | Limit          |
-|-------------|----------------|
-| `/login`    | 10 per minute  |
-| `/register` | 5 per hour     |
+| Endpoint | Limit |
+|----------|-------|
+| `/login` | 10 per minute |
+| `/register` | 5 per hour |
 
 Exceeding a limit returns HTTP `429 Too Many Requests`.
 
@@ -173,11 +177,11 @@ a shared store, e.g. `RATELIMIT_STORAGE_URL=redis://redis:6379`.
 Per-field limits, enforced before any hashing or database work. Violations return
 HTTP `400` with a descriptive message.
 
-| Field      | Endpoint(s)       | Max length | Type   |
-|------------|-------------------|------------|--------|
-| username   | `/register`, `/login` | 64 chars | string |
-| password   | `/register`, `/login` | 128 chars | string |
-| message    | `/save`           | 1024 chars | string |
+| Field | Endpoint(s) | Max length | Type |
+|-------|-------------|------------|------|
+| username | `/register`, `/login` | 64 chars | string |
+| password | `/register`, `/login` | 128 chars | string |
+| message | `/save` | 1024 chars | string |
 
 A non-string value (JSON number, array, etc.) for any of these fields also
 returns `400`. An empty string is rejected as a missing value.
@@ -193,7 +197,7 @@ before memory is consumed.
 
 ## Authentication flow
 
-```
+```text
 POST /register ──► POST /login ──► POST /retrieve | POST /save
    (create user)   (get JWT)      (Bearer <token>)
 ```
